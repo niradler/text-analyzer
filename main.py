@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 nltk.download('words')
-words = set(nltk.corpus.words.words())
+en_words = set(nltk.corpus.words.words())
 
 API_KEY = os.getenv('API_KEY', 'test')
 API_KEY_NAME = os.getenv('KEY_NAME', 'access_token')
@@ -31,7 +31,7 @@ max_ngram_size = 2
 deduplication_thresold = 0.9
 deduplication_algo = 'seqm'
 windowSize = 1
-numOfKeywords = 10
+numOfKeywords = 15
 
 kw_extractor = yake.KeywordExtractor(lan=language, n=max_ngram_size, dedupLim=deduplication_thresold,
                                      dedupFunc=deduplication_algo, windowsSize=windowSize, top=numOfKeywords, features=None)
@@ -93,23 +93,28 @@ async def logout_and_remove_cookie():
 
 class Options(BaseModel):
     text: str
+    words: Optional[list] = None
 
 
-def removeNoneEnglish(text):
-    return " ".join(w for w in nltk.wordpunct_tokenize(text) if w.lower() in words or not w.isalpha())
+def removeNoneEnglish(text, words):
+    if words is None:
+        words = []
+    tagsAndWords = set(words + list(en_words))
+    return " ".join(w for w in nltk.wordpunct_tokenize(text) if w.lower() in tagsAndWords or not w.isalpha())
 
 
-def cleanhtml(raw_html):
+def cleanhtml(raw_html, words):
     cleanr = re.compile('<.*?>')
     cleantext = re.sub(cleanr, '', raw_html)
-    cleantext = removeNoneEnglish(cleantext)
+    cleantext.replace("&nbsp;", " ")
+    cleantext = removeNoneEnglish(cleantext, words)
     return cleantext
 
 
 @app.post("/text/analyze")
 async def analyze_text(options: Options, api_key: APIKey = Depends(get_api_key)):
-    text = cleanhtml(options.text)
-    text.replace("&nbsp;", " ")
+    text = cleanhtml(options.text, options.words)
     keywords = kw_extractor.extract_keywords(text)
+    keywords = [keyword[0] for keyword in keywords]
 
-    return keywords
+    return {'keywords': keywords}
