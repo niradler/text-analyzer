@@ -111,7 +111,7 @@ def cleanhtml(raw_html, words):
     return cleantext
 
 
-@app.post("/text/analyze")
+@app.post("/html/analyze")
 async def analyze_text(options: Options, api_key: APIKey = Depends(get_api_key)):
     text = cleanhtml(options.text, options.words)
     keywords = kw_extractor.extract_keywords(text)
